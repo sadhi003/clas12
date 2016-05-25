@@ -22,7 +22,6 @@ import org.jlab.clas.tools.utils.StringTable;
 import org.jlab.clasrec.loader.ClasPluginLoader;
 import org.jlab.clasrec.main.DetectorReconstruction;
 import org.jlab.clasrec.utils.ServiceConfiguration;
-import org.jlab.coda.clara.core.ICService;
 import org.jlab.evio.clas12.EvioDataEvent;
 import org.jlab.evio.clas12.EvioDataSync;
 import org.jlab.evio.clas12.EvioSource;
@@ -393,7 +392,7 @@ public class CLASReconstruction {
 
         //}
         
-        String serviceList  = "FMT:DCHB:DCTB:BST:FTCAL:FTHODO:FTMATCH:FTOF:CTOF:EC:EB";
+        String serviceList  = "FMT:DCHB:DCTB:BST:FTCAL:FTHODO:FTMATCH:HTCC:FTOF:CTOF:ECREC:EB";
         if(cmdParser.hasOption("-s")){
            serviceList = cmdParser.asString("-s");
         }
