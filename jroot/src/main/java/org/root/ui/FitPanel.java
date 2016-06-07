@@ -2,6 +2,8 @@ package org.root.ui;
 
 
 import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -17,10 +19,13 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSlider;
+import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 import javax.swing.border.TitledBorder;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import javax.swing.plaf.basic.BasicTabbedPaneUI.TabbedPaneLayout;
 
 import org.root.base.IDataSet;
 import org.root.basic.EmbeddedCanvas;
@@ -39,7 +44,7 @@ public class FitPanel extends JPanel {
 
 	EmbeddedCanvas canvas;
 	int index;
-	JPanel fitSettings, fitFunctionPanel, lowerWindow;
+	JPanel fitSettings,fitSwapSettings, fitFunctionPanel, lowerWindow;
 	F1D fitFunction;
 	H1D histogram;
 	IDataSet thisDataset;
@@ -48,6 +53,14 @@ public class FitPanel extends JPanel {
 	DataFitter fitter = new DataFitter();
 	JComboBox paramEstimationMethods;
 	ArrayList<JCheckBox> optionCheckBoxes;
+	
+	ParameterPanel parameterPanel;
+	boolean parameterPanelSwapped = false;
+	boolean fitSettingsSwapped = false;
+	ParameterPanel parameterSwapPanel;
+    JPanel blankPanel = new JPanel();
+    boolean predef = true;
+    boolean hasDrawnStats = false;
 
 	//Actual low and high of the x axis
 
@@ -56,7 +69,6 @@ public class FitPanel extends JPanel {
 	//This mess is due to the slider only working with integer values
 	int xSliderMin = 0;
 	int xSliderMax = 1000000;
-	
 	double currentRangeMin = 0.0;
 	double currentRangeMax = 100.0;
 	JComboBox predefinedFunctionsSelector;
@@ -71,11 +83,7 @@ public class FitPanel extends JPanel {
 	
 	public FitPanel(EmbeddedCanvas canvas, int indx) {
 		this.canvas = canvas;
-		this.index = indx;
-		//Bug fix... Remove when gagik gets the pads labeled correctly
-		if(index>0){
-			index--;
-		}
+		this.index = indx;		
 		//System.out.println("Inializing Fit Panel index:["+index+"]");
 		xMin = canvas.getPad(index).getAxisX().getMin();
 		xMax = canvas.getPad(index).getAxisX().getMax();
@@ -117,12 +125,20 @@ public class FitPanel extends JPanel {
 		
 		// Labels from F1D class
 		predefinedFunctionsSelector = new JComboBox(predefFunctions);
+		predefinedFunctionsSelector.setSelectedIndex(0);
+		fitFunction.initFunction(predefFunctions[predefinedFunctionsSelector.getSelectedIndex()], currentRangeMin, currentRangeMax);
+		parameterPanel = new ParameterPanel(this.canvas,this.index,this.fitFunction);
 		predefinedFunctionsSelector.addActionListener(new ActionListener(){
 				public void actionPerformed(ActionEvent e){
 					//System.out.println(predefinedFunctionsSelector.getSelectedIndex());
 					//fitFunction = new F1D(predefFunctions[predefinedFunctionsSelector.getSelectedIndex()],currentRangeMin,currentRangeMax);
 					//fitFunction.setFunction(predefFunctions[predefinedFunctionsSelector.getSelectedIndex()]);
 					fitFunction.initFunction(predefFunctions[predefinedFunctionsSelector.getSelectedIndex()], currentRangeMin, currentRangeMax);
+					
+					//if(parameterPanelSwapped){
+				//		parameterSwapPanel.updateNewFunction(fitFunction);
+				//	}else{
+					//}
 					/*
 					if(predefinedFunctionsSelector.getSelectedIndex()==3){
 						System.out.println(predefFunctions[predefinedFunctionsSelector.getSelectedIndex()]);
@@ -136,12 +152,27 @@ public class FitPanel extends JPanel {
 							fitFunction.setParameter(i, 5.0);
 						}
 					}*/
+					if(predef){
 					for(int i=0; i<fitFunction.getNParams(); i++){
-						fitFunction.setParameter(i, 5.0);
+						if(i==0){
+							fitFunction.setParameter(0,getMaxYIDataSet(thisDataset,currentRangeMin, currentRangeMax));
+						}else if(i==1){
+							fitFunction.setParameter(1,getMeanIDataSet(thisDataset,currentRangeMin, currentRangeMax));
+						}else if(i==2){
+							fitFunction.setParameter(2,getRMSIDataSet(thisDataset,currentRangeMin, currentRangeMax));
+						}else if(i==3){
+							fitFunction.setParameter(3,getAverageHeightIDataSet(thisDataset,currentRangeMin, currentRangeMax));
+						}else if(i>3){
+							fitFunction.setParameter(i, 1.0);
+						}
+						System.out.println("Paramter "+i+" ="+fitFunction.getParameter(i));
 					}
+					}
+					parameterPanel.updateNewFunction(fitFunction);
+
 				}
 		});
-		predefinedFunctionsSelector.setSelectedIndex(0);
+		
 		JLabel labelForFunction = new JLabel("Function:");
 		JLabel dataSetLabel = new JLabel("Select Dataset:");
 		fitFunctionPanel.add(dataSetLabel);
@@ -182,13 +213,158 @@ public class FitPanel extends JPanel {
 			optionCheckBoxes.add(new JCheckBox(options[i]));
 			fitOptions.add(optionCheckBoxes.get(i));
 		}
+		
+		JTabbedPane tabbedPane = new JTabbedPane();
 		fitSettings = new JPanel(new GridLayout(2, 1));
 		fitSettings.add(fitMethod);
 		fitSettings.add(fitOptions);
-		fitSettings.setBorder(new TitledBorder("Minimizer Settings"));
-		this.add(fitSettings, BorderLayout.CENTER);
+		//parameterPanel = new ParameterPanel(this.canvas,this.index,this.fitFunction);
+		tabbedPane.add("Minimizer Settings", fitSettings);
+		tabbedPane.add("Parameter Settings", parameterPanel);
+
+		tabbedPane.setBorder(new TitledBorder("Minimizer Settings"));
+		/*tabbedPane.addChangeListener(new ChangeListener(){
+
+		    @Override
+		    public void stateChanged(ChangeEvent arg0) {
+		        Component mCompo=tabbedPane.getSelectedComponent();
+		        //System.out.println(tabbedPane.getSelectedComponent().equals(parameterPanel)+" is Selected");
+		        
+		        if(tabbedPane.getSelectedComponent().equals(tabbedPane.getComponentAt(0))){	
+		        	tabbedPane.remove(1);
+		        	tabbedPane.remove(0);
+		        	tabbedPane.add("Minimizer Settings",fitSettings);
+		        	tabbedPane.add("Parameter Settings",blankPanel);
+		        	tabbedPane.setSelectedComponent(fitSettings);
+		        }else{
+		        	tabbedPane.remove(1);
+		        	tabbedPane.remove(0);
+		        	tabbedPane.add("Minimizer Settings",blankPanel);
+		        	tabbedPane.add("Parameter Settings",parameterPanel);
+		        	tabbedPane.setSelectedComponent(parameterPanel);
+		        }
+		        
+		        JFrame topFrame = (JFrame) SwingUtilities.getWindowAncestor(tabbedPane.getSelectedComponent());
+				topFrame.pack();
+		    }   
+		});*/
+		
+		
+		/*  @Override
+	    public void stateChanged(ChangeEvent arg0) {
+	        Component mCompo=tabbedPane.getSelectedComponent();
+	        System.out.println(tabbedPane.getSelectedComponent().equals(parameterPanel)+" is Selected");
+	        
+	        if(tabbedPane.getSelectedComponent().equals(fitSettings)){
+	        	
+	        	
+	        	tabbedPane.remove(parameterPanel);
+	        	tabbedPane.add("Parameter Settings",blankPanel);
+	        	if(fitSettingsSwapped){
+	        		fitSettings = fitSwapSettings;
+	        		fitSettingsSwapped = false;
+	        	}
+	        	parameterSwapPanel = parameterPanel;
+	        	parameterPanel = (ParameterPanel) blankPanel;
+	        	parameterPanelSwapped = true;
+	        }else{
+	        	if(parameterPanelSwapped){
+	        		parameterPanel = parameterSwapPanel;
+	        		parameterPanelSwapped = false;
+	        	}
+	        	fitSwapSettings = fitSettings;
+	        	fitSettings = blankPanel;
+        		fitSettingsSwapped = true;
+
+	        }
+	        
+	        JFrame topFrame = (JFrame) SwingUtilities.getWindowAncestor(tabbedPane.getSelectedComponent());
+			topFrame.pack();
+	    }   
+	});*/
+		this.add(tabbedPane, BorderLayout.CENTER);
+		//System.out.println("YES THIS IS THE CORRECT FILE");
+	}
+	
+	private double getMeanIDataSet(IDataSet data, double min, double max){
+		int nsamples = 0;
+		double sum  = 0;
+		double nEntries = 0;
+		for(int i=0; i<data.getDataSize(); i++){
+			double x = data.getDataX(i);
+			double y = data.getDataY(i);
+			if(x>min&&x<max&&y!=0){
+				nsamples++;
+				sum += x*y;
+				nEntries+=y;
+			}
+		}
+		return sum/(double)nEntries;
+	}
+	
+	private double getRMSIDataSet(IDataSet data, double min, double max){
+		int nsamples = 0;
+		double mean  = getMeanIDataSet(data,min,max);
+		double sum   = 0;
+		double nEntries = 0;
+
+		for(int i=0; i<data.getDataSize(); i++){
+			double x = data.getDataX(i);
+			double y = data.getDataY(i);
+			if(x>min&&x<max&&y!=0){
+				nsamples++;
+				sum += Math.pow(x-mean,2)*y;
+				nEntries+=y;
+			}
+		}
+		return Math.sqrt(sum/(double)nEntries);
+	}
+	
+	private double getAverageHeightIDataSet(IDataSet data, double min, double max){
+		int nsamples = 0;
+		double sum   = 0;
+		for(int i=0; i<data.getDataSize(); i++){
+			double x = data.getDataX(i);
+			double y = data.getDataY(i);
+			if(x>min&&x<max&&y!=0){
+				nsamples++;
+				sum += y;
+			}
+		}
+		return sum/(double)nsamples;
 	}
 
+	
+	private double getMaxXIDataSet(IDataSet data, double min, double max){
+		double max1   = 0;
+		double xMax   = 0;
+		for(int i=0; i<data.getDataSize(); i++){
+			double x = data.getDataX(i);
+			double y = data.getDataY(i);
+			if(x>min&&x<max&&y!=0){
+				if(y>max1){
+					max1 = y;
+					xMax = x;
+				}
+			}
+		}
+		return xMax;
+	}
+	private double getMaxYIDataSet(IDataSet data, double min, double max){
+		double max1   = 0;
+		double xMax   = 0;
+		for(int i=0; i<data.getDataSize(); i++){
+			double x = data.getDataX(i);
+			double y = data.getDataY(i);
+			if(x>min&&x<max&&y!=0){
+				if(y>max1){
+					max1 = y;
+					xMax = x;
+				}
+			}
+		}
+		return max1;
+	}
 
 	private void initRangeSelector() {
 		lowerWindow = new JPanel(new GridLayout(2, 1));
@@ -199,8 +375,9 @@ public class FitPanel extends JPanel {
 		slider.setMaximum((int) xSliderMax);
 		slider.setValue((int) xSliderMin);
 		slider.setUpperValue((int) xSliderMax);
-		currentRangeMin = slider.getValue() * (xMax-xMin)/(double)(xSliderMax-xSliderMin);
-		currentRangeMax = slider.getUpperValue() * (xMax-xMin)/(double)(xSliderMax-xSliderMin);
+
+		currentRangeMin = slider.getValue() * (xMax-xMin)/(double)(xSliderMax-xSliderMin) + xMin;
+		currentRangeMax = slider.getUpperValue() * (xMax-xMin)/(double)(xSliderMax-xSliderMin) + xMin;
 	    JLabel rangeSliderValue1 = new JLabel(""+String.format("%4.2f",currentRangeMin));
 	    JLabel rangeSliderValue2 = new JLabel(""+String.format("%4.2f",currentRangeMax));
 		fitFunction.setRange(currentRangeMin, currentRangeMax);
@@ -214,10 +391,11 @@ public class FitPanel extends JPanel {
 		slider.addChangeListener(new ChangeListener() {
 			public void stateChanged(ChangeEvent e) {
 				RangeSlider slider = (RangeSlider) e.getSource();
-				currentRangeMin = slider.getValue() * (xMax-xMin)/(double)(xSliderMax-xSliderMin);
-				currentRangeMax = slider.getUpperValue() * (xMax-xMin)/(double)(xSliderMax-xSliderMin);
+				currentRangeMin = slider.getValue() * (xMax-xMin)/(double)(xSliderMax-xSliderMin) + xMin;
+				currentRangeMax = slider.getUpperValue() * (xMax-xMin)/(double)(xSliderMax-xSliderMin) + xMin;
 				rangeSliderValue1.setText(String.valueOf(""+String.format("%4.2f",currentRangeMin)));
 				rangeSliderValue2.setText(String.valueOf(""+String.format("%4.2f",currentRangeMax)));
+				//System.out.println("currentRangeMin:"+currentRangeMin+" xOffset:"+xOffset);
 				//fitFunction.setRange(currentRangeMin, currentRangeMax);
 			}
 		});
@@ -242,8 +420,9 @@ public class FitPanel extends JPanel {
 				String drawOption = "";
 				//System.out.println("******************BLAH "+optionCheckBoxes.size());
 				for(int i=0; i<optionCheckBoxes.size(); i++){
-					if(optionCheckBoxes.get(0).isSelected()){
+					if(optionCheckBoxes.get(0).isSelected()&&hasDrawnStats==false){
 						drawOption = "S";
+						hasDrawnStats = true;
 					//	System.out.println("Draw stats!");
 					}
 					if(optionCheckBoxes.get(1).isSelected()){
@@ -257,6 +436,22 @@ public class FitPanel extends JPanel {
 
 				fitFunction.setRange(currentRangeMin, currentRangeMax);
 				//histogram.fit(fitFunction,options);
+				if(predef){
+				for(int i=0; i<fitFunction.getNParams(); i++){
+					if(i==0){
+						fitFunction.setParameter(0,getMaxYIDataSet(thisDataset,currentRangeMin, currentRangeMax));
+					}else if(i==1){
+						fitFunction.setParameter(1,getMeanIDataSet(thisDataset,currentRangeMin, currentRangeMax));
+					}else if(i==2){
+						fitFunction.setParameter(2,getRMSIDataSet(thisDataset,currentRangeMin, currentRangeMax));
+					}else if(i==3){
+						fitFunction.setParameter(3,getAverageHeightIDataSet(thisDataset,currentRangeMin, currentRangeMax));
+					}else if(i>3){
+						fitFunction.setParameter(i, 1.0);
+					}
+					System.out.println("Paramter "+i+" ="+fitFunction.getParameter(i));
+
+				}}
 				fitter.fit(thisDataset, fitFunction,options);
 				//fitFunction.show(); // print on the screen fit results
 				fitFunction.setLineColor(2);
@@ -264,6 +459,7 @@ public class FitPanel extends JPanel {
 				fitFunction.setLineStyle(1);
 				canvas.cd(index);                                
 				canvas.draw(fitFunction,"same"+drawOption);
+				parameterPanel.updateNewFunction(fitFunction);
 			}
 		});
 		lowerWindow.add(fit);

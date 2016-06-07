@@ -51,10 +51,6 @@ public class OptionsPanel extends JPanel  {
 	public OptionsPanel(EmbeddedCanvas canvas, int indx){
 		this.canvas = canvas;
 		this.index = indx;
-		//Bug fix... Remove when gagik gets the pads labeled correctly
-		if(index>0){
-			index--;
-		}
 		//System.out.println("Inializing Options Panel index:["+index+"]");
 		xMin = canvas.getPad(index).getAxisX().getMin();
 		xMax = canvas.getPad(index).getAxisX().getMax();
@@ -273,10 +269,10 @@ public class OptionsPanel extends JPanel  {
 						canvas.getPad(i).getAxisFrame().setGridY(yGridBox.isSelected());
 					}
 					if(applyToAllCheckBoxes[9].isSelected()){
-						canvas.getPad(i).setAxisRange("X",xSlider.getValue() * (xMax-xMin)/(double)(xSliderMax-xSliderMin) , xSlider.getUpperValue()* (xMax-xMin)/(double)(xSliderMax-xSliderMin));
+						canvas.getPad(i).setAxisRange("X",xSlider.getValue() * (xMax-xMin)/(double)(xSliderMax-xSliderMin) +xMin, xSlider.getUpperValue()* (xMax-xMin)/(double)(xSliderMax-xSliderMin)+xMin);
 					}
 					if(applyToAllCheckBoxes[10].isSelected()){
-						canvas.getPad(i).setAxisRange("Y",ySlider.getValue() * (yMax-yMin)/(double)(ySliderMax-ySliderMin) , ySlider.getUpperValue()* (yMax-yMin)/(double)(ySliderMax-ySliderMin));
+						canvas.getPad(i).setAxisRange("Y",ySlider.getValue() * (yMax-yMin)/(double)(ySliderMax-ySliderMin) +yMin, ySlider.getUpperValue()* (yMax-yMin)/(double)(ySliderMax-ySliderMin)+yMin);
 					}
 				}
 				canvas.cd(index);
@@ -349,7 +345,7 @@ public class OptionsPanel extends JPanel  {
 				RangeSlider slider = (RangeSlider) e.getSource();
 				xrangeSliderValue1.setText(String.valueOf(""+String.format("%4.2f",slider.getValue() * (xMax-xMin)/(double)(xSliderMax-xSliderMin))));
 				xrangeSliderValue2.setText(String.valueOf(""+String.format("%4.2f",slider.getUpperValue() *(xMax-xMin)/(double)(xSliderMax-xSliderMin))));
-				canvas.getPad(index).setAxisRange("X",slider.getValue() * (xMax-xMin)/(double)(xSliderMax-xSliderMin) , slider.getUpperValue()* (xMax-xMin)/(double)(xSliderMax-xSliderMin));
+				canvas.getPad(index).setAxisRange("X",slider.getValue() * (xMax-xMin)/(double)(xSliderMax-xSliderMin)+xMin , slider.getUpperValue()* (xMax-xMin)/(double)(xSliderMax-xSliderMin)+xMin);
 				//canvas.repaint();
 				canvas.update();
 			}
@@ -375,7 +371,7 @@ public class OptionsPanel extends JPanel  {
 				RangeSlider slider = (RangeSlider) e.getSource();
 				yrangeSliderValue1.setText(String.valueOf(""+String.format("%4.2f",slider.getValue() * (yMax-yMin)/(double)(ySliderMax-ySliderMin))));
 				yrangeSliderValue2.setText(String.valueOf(""+String.format("%4.2f",slider.getUpperValue() *(yMax-yMin)/(double)(ySliderMax-ySliderMin))));
-				canvas.getPad(index).setAxisRange("Y",slider.getValue() * (yMax-yMin)/(double)(ySliderMax-ySliderMin) , slider.getUpperValue()* (yMax-yMin)/(double)(ySliderMax-ySliderMin));
+				canvas.getPad(index).setAxisRange("Y",slider.getValue() * (yMax-yMin)/(double)(ySliderMax-ySliderMin)+yMin , slider.getUpperValue()* (yMax-yMin)/(double)(ySliderMax-ySliderMin)+yMin);
 				//canvas.repaint();
 				canvas.update();
 			}
